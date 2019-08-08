@@ -5,8 +5,8 @@
 #
 # Date     Person       Description
 # -------- ------------ -----------------------------------------------------------------------------
-# 04/25/14 Gebre-amlak   v1.0 This script generates cpu, memory and name of porcess
-# 01/5/16  Gebre-amlak   v1.1 Update to modify the alert level
+# 04/25/14 HGA   v1.0 This script generates cpu, memory and name of porcess
+# 01/5/16  HGA   v1.1 Update to modify the alert level
 #
 #***************************************************************************************************
 
@@ -17,20 +17,14 @@ import os
 import subprocess
 import platform
 import commands
-import psutil
 import socket
 
-#change directory 
-os.chdir('/prod01/alert_central')
-sys.path.append('/prod01/tools/mediation/')
-sys.path.append('/prod01/bin/')
-import AlertCentralLib
-
-cfgdir = '/prod01/alert_central/tables/'
+cfgdir = 'tables/'
 plat = platform.system()
 scriptDir = sys.path[0]
-pid = psutil.pids()
-
+#pid = psutil.pids()
+pids = [pid for pid in os.listdir('/proc') if pid.isdigit()]
+first_time = 1
 platform_file = sys.argv[1]
 
 platforms = os.path.join(cfgdir, platform_file)
@@ -50,7 +44,7 @@ def getPlatform(ip):
     """
     with open(platforms) as platform:
         pDict=dict((key, str(value)) for key, value in (line.split('=') for line in platform))
-        print pDict
+        #print pDict
     if(pDict[ip] != ''):
         return pDict[ip]
     else:
@@ -85,43 +79,53 @@ def get_hostname():
 
     return name
 
-print("PID\t%CPU\t%MEM\tNAME")
-for line in pid:
+def print_first_time():
+    print("PID\t%CPU\t%MEM\tNAME")
+    global first_time # Modify the global variable
+    first_time = 0
+
+for line in pids:
     try:
         x = get_cpumem(line)
         if not x:
             exit(1)
-        print("%i\t%.2f\t%.2f\t%s" % x)
+       # print("%i\t%.2f\t%.2f\t%s" % x)
         cpu =  x[1]
         mem =  x[2]
         cmd =  x[3]
         #print cmd ,"PID:",line
 
-        if (cpu > 99.99):
+        if (cpu > 10.00):
+            if (first_time):
+                print_first_time()
+            print("%i\t%.2f\t%.2f\t%s" % x)
             aID = 1006
             p = getPlatform(socket.gethostname())
             p = p.replace("\n", "")
             d={ 'AlertId': aID, 'Platform': p, 'Host': socket.gethostname()}
-            AlertCentralLib.getAlertID(d)
+#            AlertCentralLib.getAlertID(d)
 
             if('AlertText' in d and d['AlertText'] >''):
                 aText = d['AlertText']
                 aText =  aText + " Name: " + cmd + " PID: " + str(line)
                 d['AlertText'] = aText
-                print AlertCentralLib.postAlert(d)
+                #print AlertCentralLib.postAlert(d)
 
-        if (mem > 99.99):
+        if (mem > 10.00):
+            if (first_time):
+                print_first_time()
+            print("%i\t%.2f\t%.2f\t%s" % x)
             aID = 1009
             p = getPlatform(socket.gethostname())
             p = p.replace("\n", "")
             d={ 'AlertId': aID, 'Platform': p,  'Host': socket.gethostname()}
-            AlertCentralLib.getAlertID(d)
+ #           AlertCentralLib.getAlertID(d)
 
             if('AlertText' in d and d['AlertText'] >''):
                 aText = d['AlertText']
                 aText =  aText + " Name: " + cmd + " PID: " + str(line)
                 d['AlertText'] = aText
-                print AlertCentralLib.postAlert(d)
+  #              print AlertCentralLib.postAlert(d)
 
     except KeyboardInterrupt:
         print
